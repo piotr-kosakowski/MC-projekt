@@ -14,7 +14,7 @@ def gaussian_probability(delta_e, temperature, prob_parameter):
 
 
 def simmulated_annealing(energy_function, initial_state, markov_chain_next, init_temperature, n_iter, 
-                         temp_scaling_factor, temp_decrease_function='linear', prob_function='metropolis', prob_parameter=None):
+                         temp_scaling_factor = None, temp_decrease_function='linear', prob_function='metropolis', prob_parameter=None):
     if prob_function == 'metropolis':
         acceptance_probability = lambda delta_e, temperature, prob_parameter: metropolis_probability(delta_e, temperature)
     elif prob_function == 'exponential':
@@ -25,9 +25,15 @@ def simmulated_annealing(energy_function, initial_state, markov_chain_next, init
         raise ValueError('prob_function must be either "metropolis", "exponential" or "gaussian"')
     
     if temp_decrease_function == 'linear':
-        temp_decrease = lambda t, i: t*temp_scaling_factor
+        temp_decrease = lambda t, i: init_temperature - i*temp_scaling_factor
+        if not temp_scaling_factor:
+            temp_scaling_factor = (init_temperature-1e-6)/n_iter #wyliczony tak współczynnik, aby temperatura zeszła do 1e-6 po n_iter iteracjach
+
     elif temp_decrease_function == 'exponential':
-        temp_decrease = lambda t, i: init_temperature * np.exp(-i*temp_scaling_factor)
+        temp_decrease = lambda t, i: t*temp_scaling_factor
+        if not temp_scaling_factor:
+            temp_scaling_factor = (1/init_temperature)**(1/n_iter)
+
     else:
         raise ValueError('temp_decrease_function must be either "linear" or "exponential"')
     
@@ -49,19 +55,21 @@ def simmulated_annealing(energy_function, initial_state, markov_chain_next, init
 def run_experiments(get_new_theta, num_experiments, fun_to_minimize, get_next_element,
                     init_temperature, sim_n_iter, temp_scaling_factor, verbose=False, temp_decrease_function='linear', prob_function='metropolis', prob_parameter=None):
     theta = get_new_theta()
+    # print(f"Initial theta: {np.sum(theta)}")
     errors = np.zeros(num_experiments)
     for i in range(num_experiments):
         init_theta = get_new_theta()
         theta_new = simmulated_annealing(fun_to_minimize, init_theta, get_next_element,
                                             init_temperature, sim_n_iter, temp_scaling_factor, temp_decrease_function, prob_function, prob_parameter)
         errors[i] = np.linalg.norm(theta-theta_new)**2
+        # print(f'theta: {theta}, theta_new: {theta_new}, error: {errors[i]}')
         if verbose and i % np.ceil(num_experiments / 100) == 0:
             print(f"\rExperiment {i+1}/{num_experiments}", end="")
     if verbose:
         print()
     return errors
 
-def run_sim_part1(m, d, sigma, num_experiments, init_temperature, sim_n_iter, temp_scaling_factor,
+def run_sim_part1(m, d, sigma, num_experiments, init_temperature, sim_n_iter, temp_scaling_factor= None,
                    verbose=False, temp_decrease_function='linear', prob_function='metropolis', prob_parameter=None):
     get_new_theta = lambda: np.random.binomial(1, 0.5, d)
     X = np.random.normal(0, 1, (m, d))
@@ -91,7 +99,7 @@ def markov_get_next_theta_sparse(theta):
     theta[i] = 1
     return theta
 
-def run_sim_part2(m, d, sigma, s, num_experiments, init_temperature, sim_n_iter, temp_scaling_factor,
+def run_sim_part2(m, d, sigma, s, num_experiments, init_temperature, sim_n_iter, temp_scaling_factor = None,
                   verbose=False, temp_decrease_function='linear', prob_function='metropolis', prob_parameter=None):
     def get_new_theta():
         theta = np.zeros(d)
@@ -108,7 +116,7 @@ def run_sim_part2(m, d, sigma, s, num_experiments, init_temperature, sim_n_iter,
                                 init_temperature, sim_n_iter, temp_scaling_factor, verbose, temp_decrease_function, prob_function, prob_parameter)
     return 1/s*np.mean(errors)
 
-def run_sim_part3(m, d, sigma, s, num_experiments, init_temperature, sim_n_iter, temp_scaling_factor,
+def run_sim_part3(m, d, sigma, s, num_experiments, init_temperature, sim_n_iter, temp_scaling_factor= None,
                   verbose=False, temp_decrease_function='linear', prob_function='metropolis', prob_parameter=None):
     def get_new_theta():
         theta = np.zeros(d)
